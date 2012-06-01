@@ -1,0 +1,23 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">RomKeeper</string>
+
+    <string name="file_download_service_name">File Download Service</string>
+    <string name="manifest_checker_service_name">Manifest Checker Service</string>
+
+    <string name="menu_refresh">Refresh</string>
+    <string name="menu_settings">Settings</string>
+
+    <string name="menu_fetch">Fetch</string>
+    <string name="menu_install">Install</string>
+    <!-- <string name="menu_delete">Delete</string> -->
+
+    <string name="empty">Empty</string>
+
+    <string name="repeating_scheduled">Repeating Scheduled</string>
+    <string name="repeating_unscheduled">Repeating Unscheduled</string>
+
+    <string name="alarm_service_started">Alarm Service Started</string>
+    <string name="alarm_service_finished">Alarm Service Finished</string>
+    <string name="alarm_service_label">Alarm Service Label</string>
+</resources>

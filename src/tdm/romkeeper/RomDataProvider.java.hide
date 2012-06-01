@@ -1,0 +1,210 @@
+package tdm.romkeeper;
+
+import android.content.ContentValues;
+import android.content.Context;
+
+import android.database.Cursor;
+import android.database.SQLException;
+import android.database.sqlite.SQLiteOpenHelper;
+import android.database.sqlite.SQLiteDatabase;
+
+import java.io.File;
+
+public class RomDataProvider
+{
+    private static final string DB_NAME = "roms.db";
+    private static final int DB_VERSION = 1;
+
+    private DbHelper            mHelper;
+    private SQLiteDatabase      mDb;
+
+    private static class DbHelper extends SQLiteOpenHelper
+    {
+        DbHelper(Context ctx) {
+            super(ctx, DB_NAME, null, DB_VERSION);
+        }
+
+        @Override
+        public void onCreate(SQLiteDatabase db) {
+            db.execSQL(
+                "CREATE TABLE romlist (" +
+                    "_id INTEGER PRIMARY KEY AUTOINCREMENT, " +
+                    "name VARCHAR(64) NOT NULL UNIQUE, " +
+                    "url VARCHAR(256) NOT NULL UNIQUE, " +
+                    "filename VARCHAR(64) NOT NULL UNIQUE, " +
+                    "size INTEGER, " +
+                    "digest CHAR(32), " +
+                    "basis VARCHAR(64), " +
+                    "delta VARCHAR(256), " +
+                    "mtime INTEGER, " +
+                    "verified INTEGER" +
+                    ")");
+        }
+
+        @Override
+        public void onUpgrade(SQLiteDatabase db, int oldVersion, int newVersion) {
+            db.execSQL("DROP TABLE IF EXISTS romlist");
+            onCreate(db);
+        }
+    }
+
+    DbAdapter(Context ctx) {
+        mHelper = new DbHelper(ctx);
+    }
+
+    @Override
+    public boolean onCreate() {
+        mDb = mHelper.openDatabase(getContext(), DB_NAME, null, DB_VERSION);
+        return (mDb != null);
+    }
+
+    public Cursor query(Uri uri, String[] projection,
+            String selection, String[] selectionArgs, String sort) {
+        SQLiteQueryBuilder qb = new SQLiteQueryBuilder();
+        qb.setTables("romlist");
+        switch (URL_MATCHER.match(url)) {
+        case NAME:
+            qb.setProjectionMap(NAMES_LIST_PROJECTION_MAP);
+            break;
+        case NAME_ID:
+            qb.appendWhere("_id=" + uri.getPathSegments().get(1));
+            break;
+        default:
+            throw new IllegalArgumentException("Unknown URI " + uri);
+        }
+
+        String orderBy;
+        if (TextUtils.isEmpty(sort)) {
+            orderBy = "_id DESC";
+        }
+        else {
+            orderBy = sort;
+        }
+
+        Cursor c = qb.query(mDb, projection, selection, selectionArgs, null, null, orderBy);
+        c.setNotificationUri(getContext().getContentResolver(), uri);
+        return c;
+    }
+
+    @Override
+    public String getType(Uri uri) {
+        switch (URL_MATCHER.match(uri)) {
+        case NAME:
+            return "vnd.android.cursor.dir/tdm.romkeeper.string";
+        case NAME_ID:
+            return "vnd.android.cursor.item/tdm.romkeeper.string";
+        default:
+            throw new IllegalArgumentException("Unknown URI " + uri);
+        }
+    }
+
+    @Override
+    public Uri insert(Uri uri, ContentValues initialValues) {
+        long rowid;
+        ContentValues values;
+        if (initialValues != null) {
+            values = new ContentValues(initialValues);
+        }
+        else {
+            values = new ContentValues();
+        }
+
+        if (URI_MATCHER.match(uri) != NAMES) {
+            throw new IllegalArgumentException("Unknown URI " + uri);
+        }
+
+        Resources r = Resources.getSystem();
+
+        if (!values.containsKey(roms)) {
+            values.put("roms", "");
+        }
+        values.put(SimpleString.Strings._SYNC_VERSION,
+                   Long.toString(System.currentTimeMillis()));
+
+        rowid = mDb.insert("roms", "romlist", values);
+        if (rowid > 0) {
+            Uri uri = Uri.withAppendedPath(SimpleString.Strings.CONTENT_URI,
+                    Long.toString(rowid));
+            getContext().getContentResolver().notifyChange(uri, null);
+        }
+    }
+
+    @Override
+    public int delete(Uri uri, String where, String[] whereArgs) {
+        int count;
+        int rowid = 0;
+        switch (URI_MATCHER.match(uri)) {
+        case NAMES:
+            count = mDb.delete("roms", where, whereArgs);
+            break;
+        case NAME_ID:
+            String segment = uri.getPathSegments().get(1);
+            rowid = Long.parseLong(segment);
+            count = mDb.delete("roms", "_id=" +
+                                      segment +
+                                      (!TextUtils.isEmpty(where) ? " AND (" + where
+                                              + ')' : ""), whereArgs);
+            break;
+        default:
+            throw new IllegalArgumentException("Unknown URI " + uri);
+        }
+    }
+
+    @Override
+    public int update(Uri uri, ContentValues values, String where, String[] whereArgs) {
+        int count;
+        values.put(SimpleString.Strings._SYNC_VERSION,
+                   Long.toString(System.currentTimeMillis()));
+        switch (URL_MATCHER.match(uri)) {
+        case NAMES:
+            count = mDb.update("roms", values, where, whereArgs);
+            break;
+        case NAME_ID:
+            String segment = uri.getPathSegments().get(1);
+            count = mDb.update("roms", values, "_id="
+                    + segment
+                    + (!TextUtils.isEmpty(where) ? " AND (" + where
+                            + ')' : ""), whereArgs);
+            break;
+        default:
+            throw new IllegalArgumentException("Unknown URI " + uri);
+        }
+        getContext().getContentResolver().notifyChange(url, null);
+        return count;
+    }
+
+    /* Rom extensions */
+
+    Rom get(String name) {
+        Rom r = null;
+        Cursor c = mDb.query("romlist",
+                new String[] { "url", "filename", "size", "digest", "basis", "delta" },
+                "name="+name, null, null, null, null);
+        if (c != null) {
+            c.moveToFirst();
+            int idx = 0;
+            r = new Rom(name);
+            r.setUrl(c.getString(idx++));
+            r.setFilename(c.getString(idx++));
+            r.setSize(c.getInt(idx++));
+            r.setDigest(c.getString(idx++));
+            r.setBasis(c.getString(idx++));
+            r.setDelta(c.getString(idx++));
+        }
+        return r;
+    }
+
+    void setVerified(String name, boolean val) {
+        File f = new File(name);
+        ContentValues values = new ContentValues();
+        if (val) {
+            values.put("mtime", f.lastModified());
+            values.put("verified", 1);
+        }
+        else {
+            values.put("mtime", 0);
+            values.put("verified", 0);
+        }
+        mDb.update("romlist", values, "name="+name, null);
+    }
+}

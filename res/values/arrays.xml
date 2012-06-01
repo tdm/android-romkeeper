@@ -1,0 +1,12 @@
+<?xml version="1.0" encoding="utf-8"?>
+
+<resources>
+    <string-array name="updateInterval">
+        <item name="hourly">Hourly</item>
+        <item name="daily">Daily</item>
+    </string-array>
+    <string-array name="updateIntervalValues">
+        <item name="hourly">3600</item>
+        <item name="daily">86400</item>
+    </string-array>
+</resources>

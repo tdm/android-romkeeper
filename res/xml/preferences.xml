@@ -1,0 +1,25 @@
+<?xml version="1.0" encoding="utf-8"?>
+
+<PreferenceScreen xmlns:android="http://schemas.android.com/apk/res/android">
+    <PreferenceCategory
+        android:title="Updates"
+        android:key="updates">
+        <CheckBoxPreference
+            android:key="auto_updates"
+            android:summary="Control automatic updates"
+            android:title="Automatic updates"
+            android:defaultValue="false"
+        />
+    </PreferenceCategory>
+    <PreferenceCategory
+        android:title="Data Source"
+        android:key="data_source">
+        <EditTextPreference
+            android:key="manifest_url"
+            android:title="Manifest URL"
+            android:summary="Where to find the manifest"
+            android:dialogTitle="Manifest URL"
+            android:dialogMessage="Provide an URL"
+            android:defaultValue="http://vmroms.com/~vmstorage/romkeeper" />
+    </PreferenceCategory>
+</PreferenceScreen>
